@@ -1,0 +1,32 @@
+# Ploso settings. Every value here is the default; change what you need.
+# A file at ~/.config/ploso/config.toml overrides this one, section by section.
+
+[wake]
+model = "models/ploso.onnx"   # trained with train/ploso.yaml
+threshold = 0.5               # raise if it wakes by itself, lower if it misses you
+stride_frames = 2             # score every 2 frames (160 ms)
+
+[stt]
+model = "small.en"            # base.en is faster on a weak CPU
+device = "auto"               # auto, cpu or cuda
+
+[tts]
+voice = "models/en_US-lessac-medium.onnx"
+
+[audio]
+input_device = ""             # empty = system default. Names: python -m sounddevice
+output_device = ""
+
+[listen]
+silence_ms = 800              # pause that ends a command
+max_seconds = 15
+start_timeout = 4             # seconds to start speaking after the chime
+confirm_timeout = 8           # seconds to say "confirm"
+min_rms = 150                 # level below which audio is never treated as speech
+
+[agent]
+claude = "claude"
+model = ""                    # empty = Claude Code's default model
+timeout = 600                 # seconds before an agent run is stopped
+session_minutes = 30          # how long follow-ups reach the same agent session
+max_speak_chars = 700         # spoken replies are cut at a sentence end near this length

@@ -1,0 +1,38 @@
+# Python and editor state
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.vscode/
+.idea/
+
+# Local project decisions, transcripts, recordings, and deployment state
+NOTES.md
+local/
+data/
+recordings/
+transcripts/
+state/
+*.wav
+*.mp3
+*.flac
+# models are downloaded or trained per machine
+models/*
+!models/.gitkeep
+# wake word training data and output
+train/data/
+train/output/
+# Credentials and account configuration
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+token.json
+*token*.json
+*credential*.json
+*client_secret*.json

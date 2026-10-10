@@ -1,0 +1,10 @@
+# Local skill configuration. Add skills for your own projects in a local override;
+# do not commit project paths, account details, or tool permissions.
+#
+# kind = "agent" runs `claude -p <prompt>` in cwd.
+# kind = "script" runs a local command and speaks what it prints.
+
+[fallback]
+kind = "agent"
+cwd = "agent"
+followup_suffix = ""

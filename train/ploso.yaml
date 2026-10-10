@@ -1,0 +1,22 @@
+# livekit-wakeword training config for the wake word "ploso" (PLOH-soh).
+# Run from this directory. See README.md here.
+model_name: ploso
+target_phrases:
+  - "ploso"
+  - "ploh so"        # phonetic spelling, in case the TTS misreads the made-up word
+n_samples: 10000
+n_samples_val: 2000
+# Near misses the model must learn to ignore.
+custom_negative_phrases:
+  - "also"
+  - "plaza"
+  - "close so"
+  - "play so"
+  - "pillow so"
+model:
+  model_type: conv_attention
+  model_size: small
+steps: 50000
+target_fp_per_hour: 0.2
+data_dir: ./data
+output_dir: ./output

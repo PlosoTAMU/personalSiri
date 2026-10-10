@@ -1,0 +1,16 @@
+# User service. install.sh fills in @ROOT@ and copies this to ~/.config/systemd/user/.
+[Unit]
+Description=Ploso voice assistant
+After=pipewire.service wireplumber.service network-online.target
+Wants=pipewire.service wireplumber.service
+
+[Service]
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/.venv/bin/ploso daemon
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
