@@ -7,8 +7,7 @@ __pycache__/
 .vscode/
 .idea/
 
-# Local project decisions, transcripts, recordings, and deployment state
-NOTES.md
+# Local transcripts, recordings, and deployment state
 local/
 data/
 recordings/
@@ -17,9 +16,10 @@ state/
 *.wav
 *.mp3
 *.flac
-# models are downloaded or trained per machine
+# models are downloaded per machine; the trained wake word model is kept
 models/*
 !models/.gitkeep
+!models/ploso.onnx
 # wake word training data and output
 train/data/
 train/output/
