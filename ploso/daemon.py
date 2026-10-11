@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import time
 
-from . import audio, skills as skills_mod
+from . import audio, skills as skills_mod, status
 from .assistant import Assistant
 from .config import STATE_DIR, resolve
 from .stt import STT
@@ -43,7 +44,7 @@ class Voice:
         text = self.stt.transcribe(clip) if clip is not None else ""
         if not text:
             return False
-        self.assistant.handle(text, self.say)
+        self.assistant.handle(text, self.say, acknowledge=True)
         return True
 
     def converse(self, preroll: list | None = None) -> None:
@@ -59,26 +60,44 @@ class Voice:
 
 
 def run(cfg: dict) -> None:
+    """Keep the audio engine alive; the persisted control decides whether it listens."""
     from .wake import Wake
 
     wake = Wake(resolve(cfg["wake"]["model"]), cfg["wake"]["threshold"], cfg["wake"]["stride_frames"])
     with audio.Mic(cfg["audio"]["input_device"]) as mic:
         voice = Voice(cfg, mic)
-        log.info("listening for the wake word")
+        log.info("audio engine started")
         recent: list = []
+        enabled: bool | None = None
         while True:
-            frame = mic.read(timeout=10)
-            recent = (recent + [frame])[-2:]
-            score = wake.feed(frame)
-            if score < wake.threshold:
-                mic.track_noise(frame)
+            state = status.snapshot()
+            status.heartbeat()
+            if state["enabled"] != enabled:
+                enabled = state["enabled"]
+                wake.reset()
+                mic.flush()
+                recent = []
+                log.info("listening %s", "enabled" if enabled else "disabled")
+            if not enabled:
+                time.sleep(0.25)
                 continue
-            log.info("wake word, score %.2f", score)
-            audio.chime(voice.out)
-            voice.converse(preroll=recent)
-            mic.flush()
-            wake.reset()
-            recent = []
+            try:
+                frame = mic.read(timeout=10)
+                recent = (recent + [frame])[-2:]
+                score = wake.feed(frame)
+                if score < wake.threshold:
+                    mic.track_noise(frame)
+                    continue
+                log.info("wake word, score %.2f", score)
+                audio.chime(voice.out)
+                voice.converse(preroll=recent)
+                mic.flush()
+                wake.reset()
+                recent = []
+            except Exception as exc:  # noqa: BLE001 - service watchdog recovers the process
+                status.heartbeat(error=f"{type(exc).__name__}: {exc}")
+                log.exception("audio loop failed; retrying")
+                time.sleep(2)
 
 
 def push_to_talk(cfg: dict) -> None:

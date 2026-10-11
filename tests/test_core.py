@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ploso import brief, config, dispatch, skills as skills_mod
+from ploso import brief, config, dispatch, skills as skills_mod, status
 from ploso.assistant import Assistant
 from ploso.dispatch import Result
 from ploso.speakable import speakable
@@ -44,6 +44,30 @@ class Fake:
     def run_script(self, command, **kw):
         self.calls.append({"script": command})
         return Result(True, "script reply")
+
+
+def test_status_enable_setting_is_durable_and_heartbeat_is_healthy(tmp_path, monkeypatch):
+    monkeypatch.setattr(status, "STATE_DIR", Path(tmp_path))
+    monkeypatch.setattr(status, "STATUS_FILE", Path(tmp_path) / "status.json")
+    status.set_enabled(False)
+    assert status.snapshot()["enabled"] is False
+    status.heartbeat()
+    assert status.snapshot()["enabled"] is False
+    assert status.healthy(status.snapshot())
+
+
+def test_voice_command_is_acknowledged_before_processing(tmp_path):
+    fake, spoken = Fake(), []
+    assistant = Assistant(
+        SKILLS,
+        config.load(),
+        state_dir=Path(tmp_path),
+        run_agent=fake.run_agent,
+        run_script=fake.run_script,
+    )
+    assistant.handle("what is the weather", spoken.append, acknowledge=True)
+    assert spoken[0] == "Sure — I'll take care of what is the weather."
+    assert spoken[-1] == "short reply."
 
 
 def test_unmatched_text_uses_the_safe_fallback(tmp_path):

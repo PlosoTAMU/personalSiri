@@ -28,8 +28,10 @@ fi
 echo "== service"
 mkdir -p "$HOME/.config/ploso" "$HOME/.config/systemd/user"
 sed "s|@ROOT@|$ROOT|g" systemd/plosod.service > "$HOME/.config/systemd/user/plosod.service"
+sed "s|@ROOT@|$ROOT|g" systemd/ploso-status.service > "$HOME/.config/systemd/user/ploso-status.service"
 systemctl --user daemon-reload
 systemctl --user enable pipewire wireplumber >/dev/null 2>&1 || true
+systemctl --user enable plosod ploso-status
 # Lets the service start at boot with nobody logged in.
 sudo loginctl enable-linger "$USER"
 
@@ -40,5 +42,5 @@ Installed. Still to do, see README.md:
   2. train the wake word and copy it to models/ploso.onnx   (train/README.md)
   3. .venv/bin/ploso gmail-auth                             (daily brief)
   4. .venv/bin/ploso doctor                                 (everything should say ok)
-  5. systemctl --user enable --now plosod
+  5. systemctl --user enable --now plosod ploso-status
 MSG

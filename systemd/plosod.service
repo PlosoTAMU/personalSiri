@@ -3,14 +3,17 @@
 Description=Ploso voice assistant
 After=pipewire.service wireplumber.service network-online.target
 Wants=pipewire.service wireplumber.service
+# Disable systemd's start-rate limit; the service itself waits between retries.
+StartLimitIntervalSec=0
 
 [Service]
 WorkingDirectory=@ROOT@
 ExecStart=@ROOT@/.venv/bin/ploso daemon
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONUNBUFFERED=1
-Restart=on-failure
-RestartSec=5
+# Restart even after a clean-but-unexpected exit; systemd also restarts it after a crash.
+Restart=always
+RestartSec=2
 
 [Install]
 WantedBy=default.target

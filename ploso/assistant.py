@@ -101,11 +101,13 @@ class Assistant:
 
     # -- turns -----------------------------------------------------------------
 
-    def handle(self, text: str, say: Say) -> None:
+    def handle(self, text: str, say: Say, *, acknowledge: bool = False) -> None:
         said = normalize(text)
         if not said:
             return
         log.info("heard: %s", text)
+        if acknowledge:
+            say(f"Sure — I'll take care of {text.strip()}.")
         try:
             self._handle(text, said, say)
         finally:

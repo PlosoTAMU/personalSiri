@@ -1,0 +1,17 @@
+# Per-user desktop status control. install.sh fills in @ROOT@ before installation.
+[Unit]
+Description=Ploso Siri desktop status control
+After=graphical-session.target plosod.service
+Wants=plosod.service
+StartLimitIntervalSec=0
+
+[Service]
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/.venv/bin/ploso status
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

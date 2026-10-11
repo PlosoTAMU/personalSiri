@@ -1,4 +1,4 @@
-"""Command line entry point: ploso daemon | ptt | text | doctor | gmail-auth."""
+"""Command line entry point for listening, desktop control, and diagnostics."""
 
 from __future__ import annotations
 
@@ -83,6 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-v", "--verbose", action="store_true")
     sub = ap.add_subparsers(dest="command", required=True)
     sub.add_parser("daemon", help="listen for the wake word (what the systemd service runs)")
+    sub.add_parser("status", help="show the persistent top-left enable/disable control")
+    enabled = sub.add_parser("enable", help="persistently enable wake-word listening")
+    disabled = sub.add_parser("disable", help="persistently disable wake-word listening")
     sub.add_parser("ptt", help="push to talk: Enter instead of the wake word")
     text = sub.add_parser("text", help="type a command instead of saying it")
     text.add_argument("words", nargs="*", help="the command. Leave empty for a prompt")
@@ -105,6 +108,17 @@ def main(argv: list[str] | None = None) -> int:
         from .brief import authorize
 
         authorize()
+        return 0
+    if args.command in {"enable", "disable"}:
+        from . import status
+
+        status.set_enabled(args.command == "enable")
+        print(f"Ploso Siri is {'enabled' if args.command == 'enable' else 'disabled'}.")
+        return 0
+    if args.command == "status":
+        from .status import run_window
+
+        run_window()
         return 0
 
     from . import daemon
