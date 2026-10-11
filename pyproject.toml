@@ -1,7 +1,7 @@
 [project]
 name = "ploso"
 version = "0.1.0"
-description = "Always-listening voice front end for Claude Code. Wake word: ploso."
+description = "Always-listening voice front end for Claude Code. Wake phrase: hey ploso."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
