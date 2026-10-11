@@ -14,7 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from . import dispatch
+from . import dispatch, router as router_mod
+from .config import resolve
+from . import events, skills as skills_mod
 from .skills import FALLBACK, Skill, match, normalize
 from .speakable import speakable
 
@@ -41,10 +43,16 @@ class Assistant:
         run_agent=dispatch.run_agent,
         run_script=dispatch.run_script,
         clock: Callable[[], float] = time.time,
+        route=router_mod.route,
+        emit=events.emit,
     ):
         self.skills = {n: s for n, s in skills.items() if n != FALLBACK}
         self.fallback = skills.get(FALLBACK)
         self.cfg = cfg["agent"]
+        self.router_cfg = cfg.get("router", {})
+        self._route = route
+        self.emit = emit
+        self.registry = router_mod.Registry(state_dir / "sessions.json" if state_dir else None)
         self.state_dir = state_dir
         self._run_agent = run_agent
         self._run_script = run_script
@@ -106,6 +114,7 @@ class Assistant:
         if not said:
             return
         log.info("heard: %s", text)
+        self.emit("heard", text.strip())
         if acknowledge:
             say(f"Sure — I'll take care of {text.strip()}.")
         try:
@@ -127,6 +136,10 @@ class Assistant:
         if said in END_SESSION:
             self.session = None
             say("Okay.")
+            return
+
+        if self.router_cfg.get("enabled"):
+            self._routed(text, say)
             return
 
         skill = match(text, self.skills)
@@ -210,3 +223,43 @@ class Assistant:
         expires = self._clock() + 60 * self.cfg["session_minutes"]
         self.session = {"skill": skill.name, "id": session_id, "expires": expires}
         log.info("session %s open for %s (claude --resume %s)", skill.name, skill.cwd, session_id)
+
+    # -- router ----------------------------------------------------------------
+
+    def _routed(self, text: str, say: Say) -> None:
+        rc = self.router_cfg
+        repos = router_mod.discover_repos([resolve(r) for r in rc["repo_roots"]])
+        decision = self._route(
+            text, repos, self.registry, now=self._clock(), claude=self.cfg["claude"],
+            model=rc["model"], cwd=self.fallback.cwd if self.fallback else Path.home(),
+        )  # fmt: skip
+        if not decision:
+            self.emit("error", "The router gave no usable answer.")
+            say("I couldn't work out where to send that.")
+            return
+        if decision.action == "answer":
+            self.emit("reply", decision.reply)
+            say(speakable(decision.reply, self.cfg["max_speak_chars"]) or "Done.")
+            return
+        cwd = repos.get(decision.repo, Path.home())
+        label = decision.repo or "home"
+        self.emit("route", f"{decision.action} session in {label} ({cwd}) with {decision.model}: {decision.task}")
+        log.info("route: %s in %s with %s", decision.action, cwd, decision.model)
+        result = self._run_agent(
+            decision.task + skills_mod.DEFAULT_FOLLOWUP_SUFFIX,
+            cwd,
+            resume=decision.session_id or None,
+            model=router_mod.MODELS[decision.model],
+            claude=self.cfg["claude"],
+            timeout=rc["timeout"],
+            permission_mode=rc["permission_mode"],
+            on_event=self.emit,
+        )
+        if not result.ok:
+            self.emit("error", FAILURES[result.error])
+            say(FAILURES[result.error])
+            return
+        self.emit("reply", result.text)
+        if result.session_id:
+            self.registry.record(result.session_id, decision.repo, decision.model, decision.task, self._clock())
+        self._speak_reply(self.fallback or Skill("router", "agent"), result.text, say)

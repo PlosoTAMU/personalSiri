@@ -13,6 +13,8 @@ from .tts import TTS
 
 log = logging.getLogger(__name__)
 
+PREROLL_FRAMES = 25  # 2 s: the wake phrase plus what was said with it
+
 
 class Voice:
     """Mic, recogniser, synthesiser and assistant wired together."""
@@ -38,25 +40,26 @@ class Voice:
         # The mic heard our own voice. Drop it so it is not taken for the next command.
         self.mic.flush()
 
-    def take_command(self, start_timeout: float, preroll: list | None = None) -> bool:
-        """Capture and act on one utterance. False if nothing intelligible was said."""
-        clip = audio.capture(self.mic, self.cfg["listen"], start_timeout=start_timeout, preroll=preroll)
-        text = self.stt.transcribe(clip) if clip is not None else ""
+    def take_command(self, preroll: list) -> bool:
+        """Capture and act on one utterance, "hey ploso ..." said in one breath or in two.
+
+        The preroll holds the last two seconds, which include the wake phrase and anything
+        said right after it. If that is only the wake phrase, wait for the command.
+        """
+        listen = self.cfg["listen"]
+        clip = audio.capture(self.mic, listen, start_timeout=0, preroll=preroll, chime_frames=0, speaking=True)
+        text = skills_mod.strip_wake(self.stt.transcribe(clip)) if clip is not None else ""
+        if not text:
+            clip = audio.capture(self.mic, listen, start_timeout=listen["start_timeout"], chime_frames=0)
+            text = skills_mod.strip_wake(self.stt.transcribe(clip)) if clip is not None else ""
         if not text:
             return False
         self.assistant.handle(text, self.say, acknowledge=True)
         return True
 
-    def converse(self, preroll: list | None = None) -> None:
-        """One wake-up: a command, then spoken confirmations for as long as one is pending."""
-        listen = self.cfg["listen"]
-        if not self.take_command(listen["start_timeout"], preroll):
+    def converse(self, preroll: list) -> None:
+        if not self.take_command(preroll):
             log.info("woke, but heard no command")
-        while self.assistant.awaiting_confirmation:
-            audio.chime(self.out)
-            if not self.take_command(listen["confirm_timeout"]):
-                self.assistant.cancel_pending()
-                self.say("Cancelled.")
 
 
 def run(cfg: dict) -> None:
@@ -69,9 +72,16 @@ def run(cfg: dict) -> None:
         log.info("audio engine started")
         recent: list = []
         enabled: bool | None = None
+        state, last_beat, last_mixer = status.snapshot(), 0.0, 0.0
         while True:
-            state = status.snapshot()
-            status.heartbeat()
+            # The heartbeat fsyncs (~100 ms), longer than one 80 ms frame: once a second only,
+            # or the loop falls behind the mic and drops audio.
+            if cfg["audio"]["mixer"] and time.monotonic() - last_mixer >= 30:
+                audio.apply_mixer(cfg["audio"]["mixer_card"], cfg["audio"]["mixer"])
+                last_mixer = time.monotonic()
+            if time.monotonic() - last_beat >= 1.0:
+                state, last_beat = status.snapshot(), time.monotonic()
+                status.heartbeat()
             if state["enabled"] != enabled:
                 enabled = state["enabled"]
                 wake.reset()
@@ -83,14 +93,14 @@ def run(cfg: dict) -> None:
                 continue
             try:
                 frame = mic.read(timeout=10)
-                recent = (recent + [frame])[-2:]
+                recent = (recent + [frame])[-PREROLL_FRAMES:]
                 score = wake.feed(frame)
                 if score < wake.threshold:
                     mic.track_noise(frame)
                     continue
                 log.info("wake word, score %.2f", score)
-                audio.chime(voice.out)
-                voice.converse(preroll=recent)
+                status.signal_wake()
+                voice.converse(recent)
                 mic.flush()
                 wake.reset()
                 recent = []
@@ -112,4 +122,7 @@ def push_to_talk(cfg: dict) -> None:
                 return
             mic.flush()
             audio.chime(voice.out)
-            voice.converse()
+            clip = audio.capture(mic, voice.cfg["listen"], start_timeout=voice.cfg["listen"]["start_timeout"])
+            text = skills_mod.strip_wake(voice.stt.transcribe(clip)) if clip is not None else ""
+            if text:
+                voice.assistant.handle(text, voice.say, acknowledge=True)

@@ -12,13 +12,18 @@ WINDOW_FRAMES = 25  # 25 x 80 ms = the ~2 s window the model expects
 
 class Wake:
     def __init__(self, model_path: Path, threshold: float, stride_frames: int = 2):
+        import onnxruntime as ort
         from livekit.wakeword import WakeWordModel
 
         if not Path(model_path).is_file():
             raise FileNotFoundError(
                 f"wake word model not found: {model_path}. Train it first, see train/README.md"
             )
-        self._model = WakeWordModel(models=[str(model_path)])
+        # Extra threads do not speed this model up but spin all cores while waiting.
+        options = ort.SessionOptions()
+        options.intra_op_num_threads, options.inter_op_num_threads = 2, 1
+        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+        self._model = WakeWordModel(models=[str(model_path)], sess_options=options)
         self.threshold = threshold
         self._stride = max(1, stride_frames)
         self._frames: deque[np.ndarray] = deque(maxlen=WINDOW_FRAMES)

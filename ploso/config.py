@@ -11,10 +11,10 @@ CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / 
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "ploso"
 
 DEFAULTS: dict = {
-    "wake": {"model": "models/ploso.onnx", "threshold": 0.5, "stride_frames": 2},
+    "wake": {"model": "models/ploso.onnx", "threshold": 0.5, "stride_frames": 6},
     "stt": {"model": "small.en", "device": "auto"},
     "tts": {"voice": "models/en_US-lessac-medium.onnx"},
-    "audio": {"input_device": "", "output_device": ""},
+    "audio": {"input_device": "", "output_device": "", "mixer_card": "0", "mixer": []},
     "listen": {
         "silence_ms": 800,
         "max_seconds": 15,
@@ -28,6 +28,13 @@ DEFAULTS: dict = {
         "timeout": 600,
         "session_minutes": 30,
         "max_speak_chars": 700,
+    },
+    "router": {
+        "enabled": True,
+        "model": "claude-haiku-5-5",
+        "repo_roots": ["~"],
+        "permission_mode": "bypassPermissions",
+        "timeout": 1800,
     },
 }
 

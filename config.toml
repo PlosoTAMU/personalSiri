@@ -4,7 +4,7 @@
 [wake]
 model = "models/ploso.onnx"   # trained with train/ploso.yaml
 threshold = 0.5               # raise if it wakes by itself, lower if it misses you
-stride_frames = 2             # score every 2 frames (160 ms)
+stride_frames = 6             # score every 480 ms; one scoring pass takes ~280 ms on this CPU
 
 [stt]
 model = "small.en"            # base.en is faster on a weak CPU

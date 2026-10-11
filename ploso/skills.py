@@ -86,3 +86,20 @@ def match(text: str, skills: dict[str, Skill]) -> Skill | None:
             if score >= MATCH_CUTOFF and (best is None or rank > best[:2]):
                 best = (score, len(phrase), skill)
     return best[2] if best else None
+
+
+WAKE_PHRASES = ("hey ploso", "ploso")
+
+
+def strip_wake(text: str) -> str:
+    """Drop a leading "hey ploso" however Whisper spelled it. Anything else is kept as is."""
+    words = text.split()
+    best_k, best_score = 0, 0.0
+    for k in (3, 2, 1):
+        if k > len(words):
+            continue
+        head = normalize(" ".join(words[:k]))
+        score = max(fuzz.ratio(head, phrase) for phrase in WAKE_PHRASES)
+        if score >= 75 and score > best_score:
+            best_k, best_score = k, score
+    return " ".join(words[best_k:]).lstrip(" ,.!?;:-").strip()
